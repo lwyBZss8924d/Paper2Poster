@@ -7,7 +7,13 @@ from camel.models import ModelFactory
 from camel.agents import ChatAgent
 from tenacity import retry, stop_after_attempt
 from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
-from PosterAgent.mistral_ocr import call_mistral_ocr, parse_mistral_response, is_output_complete, MistralError
+from PosterAgent.mistral_ocr import (
+    MistralOCRConfig,
+    process_pdf_with_mistral,
+    check_mistral_output_quality,
+    MistralError,
+)
+from mistralai import Mistral
 
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
@@ -47,16 +53,22 @@ def parse_raw(args, actor_config, version=1):
     text_content = ""
     raw_result = None
 
+    config = MistralOCRConfig()
     try:
-        mistral_resp = call_mistral_ocr(raw_source)
-        text_content, images, tables = parse_mistral_response(mistral_resp)
+        client = Mistral(api_key=config.api_key)
+        mistral_resp, text_content, images, tables = process_pdf_with_mistral(
+            raw_source,
+            client,
+            config,
+        )
+        ok, reasons = check_mistral_output_quality(mistral_resp, text_content, config)
+        if not ok:
+            raise MistralError(";".join(reasons))
         raw_result = {
             "pages": mistral_resp.get("pages", []),
             "images": images,
             "tables": tables,
         }
-        if not is_output_complete(text_content, images, tables):
-            raise MistralError("Output incomplete")
     except Exception as e:
         print(f"\nMistral OCR failed: {e}\nUsing Docling fallback\n")
         raw_result = doc_converter.convert(raw_source)
