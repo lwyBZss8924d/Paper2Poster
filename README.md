@@ -60,7 +60,7 @@ Create a `.env` file in the project root and add your OpenAI API key:
 OPENAI_API_KEY=<your_openai_api_key>
 MISTRAL_API_KEY=<your_mistral_api_key>
 ```
-The parser uses Mistral's OCR service; ensure the API key is set.
+The parser uses Mistral's OCR service via the official Python SDK; ensure the API key is set.
 
 ---
 

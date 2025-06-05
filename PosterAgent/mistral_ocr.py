@@ -1,9 +1,7 @@
 import os
 import base64
-import requests
 import re
-
-MISTRAL_OCR_URL = "https://api.mistral.ai/v1/ocr"
+from mistralai import Mistral
 
 class MistralError(Exception):
     """Raised when Mistral OCR fails."""
@@ -16,19 +14,18 @@ def call_mistral_ocr(pdf_path: str) -> dict:
         raise MistralError("MISTRAL_API_KEY not configured")
 
     with open(pdf_path, "rb") as f:
-        pdf_bytes = f.read()
-    payload = {
-        "model": "mistral-ocr-latest",
-        "document": {"document_base64": base64.b64encode(pdf_bytes).decode("utf-8")},
-        "include_image_base64": True,
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    resp = requests.post(MISTRAL_OCR_URL, json=payload, headers=headers, timeout=60)
-    resp.raise_for_status()
-    return resp.json()
+        pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    client = Mistral(api_key=api_key)
+    resp = client.ocr.process(
+        model="mistral-ocr-latest",
+        document={
+            "type": "document_url",
+            "document_url": f"data:application/pdf;base64,{pdf_b64}",
+        },
+        include_image_base64=True,
+    )
+    return resp if isinstance(resp, dict) else resp.to_dict()
 
 
 def parse_mistral_response(resp: dict):
