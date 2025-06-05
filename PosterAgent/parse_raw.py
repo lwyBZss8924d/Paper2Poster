@@ -1,6 +1,5 @@
 from dotenv import load_dotenv
 from utils.src.utils import get_json_from_response
-from utils.src.model_utils import parse_pdf
 import json
 import random
 
@@ -8,6 +7,7 @@ from camel.models import ModelFactory
 from camel.agents import ChatAgent
 from tenacity import retry, stop_after_attempt
 from docling_core.types.doc import ImageRefMode, PictureItem, TableItem
+from PosterAgent.mistral_ocr import call_mistral_ocr, parse_mistral_response, is_output_complete, MistralError
 
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
@@ -17,13 +17,10 @@ from pathlib import Path
 
 import PIL
 
-from marker.models import create_model_dict
-
 from utils.wei_utils import *
 
 from utils.pptx_utils import *
 from utils.critic_utils import *
-import torch
 from jinja2 import Template
 import re
 import argparse
@@ -47,15 +44,24 @@ def parse_raw(args, actor_config, version=1):
     raw_source = args.poster_path
     markdown_clean_pattern = re.compile(r"<!--[\s\S]*?-->")
 
-    raw_result = doc_converter.convert(raw_source)
+    text_content = ""
+    raw_result = None
 
-    raw_markdown = raw_result.document.export_to_markdown()
-    text_content = markdown_clean_pattern.sub("", raw_markdown)
-
-    if len(text_content) < 500:
-        print('\nParsing with docling failed, using marker instead\n')
-        parser_model = create_model_dict(device='cuda', dtype=torch.float16)
-        text_content, rendered = parse_pdf(raw_source, model_lst=parser_model, save_file=False)
+    try:
+        mistral_resp = call_mistral_ocr(raw_source)
+        text_content, images, tables = parse_mistral_response(mistral_resp)
+        raw_result = {
+            "pages": mistral_resp.get("pages", []),
+            "images": images,
+            "tables": tables,
+        }
+        if not is_output_complete(text_content, images, tables):
+            raise MistralError("Output incomplete")
+    except Exception as e:
+        print(f"\nMistral OCR failed: {e}\nUsing Docling fallback\n")
+        raw_result = doc_converter.convert(raw_source)
+        raw_markdown = raw_result.document.export_to_markdown()
+        text_content = markdown_clean_pattern.sub("", raw_markdown)
 
     if version == 1:
         template = Template(open("utils/prompts/gen_poster_raw_content.txt").read())
@@ -134,80 +140,106 @@ def gen_image_and_table(args, conv_res):
     output_dir.mkdir(parents=True, exist_ok=True)
     doc_filename = args.poster_name
 
-    # Save page images
-    for page_no, page in conv_res.document.pages.items():
-        page_no = page.page_no
-        page_image_filename = output_dir / f"{doc_filename}-{page_no}.png"
-        with page_image_filename.open("wb") as fp:
-            page.image.pil_image.save(fp, format="PNG")
-
-    # Save images of figures and tables
-    table_counter = 0
-    picture_counter = 0
-    for element, _level in conv_res.document.iterate_items():
-        if isinstance(element, TableItem):
-            table_counter += 1
-            element_image_filename = (
-                output_dir / f"{doc_filename}-table-{table_counter}.png"
-            )
-            with element_image_filename.open("wb") as fp:
-                element.get_image(conv_res.document).save(fp, "PNG")
-
-        if isinstance(element, PictureItem):
-            picture_counter += 1
-            element_image_filename = (
-                output_dir / f"{doc_filename}-picture-{picture_counter}.png"
-            )
-            with element_image_filename.open("wb") as fp:
-                element.get_image(conv_res.document).save(fp, "PNG")
-
-    # Save markdown with embedded pictures
-    md_filename = output_dir / f"{doc_filename}-with-images.md"
-    conv_res.document.save_as_markdown(md_filename, image_mode=ImageRefMode.EMBEDDED)
-
-    # Save markdown with externally referenced pictures
-    md_filename = output_dir / f"{doc_filename}-with-image-refs.md"
-    conv_res.document.save_as_markdown(md_filename, image_mode=ImageRefMode.REFERENCED)
-
-    # Save HTML with externally referenced pictures
-    html_filename = output_dir / f"{doc_filename}-with-image-refs.html"
-    conv_res.document.save_as_html(html_filename, image_mode=ImageRefMode.REFERENCED)
-
     tables = {}
-
-    table_index = 1
-    for table in conv_res.document.tables:
-        caption = table.caption_text(conv_res.document)
-        if len(caption) > 0:
-            table_img_path = f'<{args.model_name_t}_{args.model_name_v}>_images_and_tables/{args.poster_name}/{args.poster_name}-table-{table_index}.png'
-            table_img = PIL.Image.open(table_img_path)
-            tables[str(table_index)] = {
-                'caption': caption,
-                'table_path': table_img_path,
-                'width': table_img.width,
-                'height': table_img.height,
-                'figure_size': table_img.width * table_img.height,
-                'figure_aspect': table_img.width / table_img.height,
-            }
-
-        table_index += 1
-
     images = {}
-    image_index = 1
-    for image in conv_res.document.pictures:
-        caption = image.caption_text(conv_res.document)
-        if len(caption) > 0:
-            image_img_path = f'<{args.model_name_t}_{args.model_name_v}>_images_and_tables/{args.poster_name}/{args.poster_name}-picture-{image_index}.png'
-            image_img = PIL.Image.open(image_img_path)
-            images[str(image_index)] = {
-                'caption': caption,
-                'image_path': image_img_path,
-                'width': image_img.width,
-                'height': image_img.height,
-                'figure_size': image_img.width * image_img.height,
-                'figure_aspect': image_img.width / image_img.height,
+    if isinstance(conv_res, dict):
+        img_idx = 1
+        table_idx = 1
+        for item in conv_res.get("images", []):
+            img_path = output_dir / f"{doc_filename}-picture-{img_idx}.png"
+            with img_path.open("wb") as fp:
+                fp.write(item["data"])
+            images[str(img_idx)] = {
+                'caption': item.get('caption', ''),
+                'image_path': str(img_path),
+                'width': item.get('width', 0),
+                'height': item.get('height', 0),
+                'figure_size': item.get('width', 0) * item.get('height', 0),
+                'figure_aspect': item.get('width', 1) / max(item.get('height', 1), 1),
             }
-        image_index += 1
+            img_idx += 1
+        for item in conv_res.get("tables", []):
+            tbl_path = output_dir / f"{doc_filename}-table-{table_idx}.png"
+            with tbl_path.open("wb") as fp:
+                fp.write(item["data"])
+            tables[str(table_idx)] = {
+                'caption': item.get('caption', ''),
+                'table_path': str(tbl_path),
+                'width': item.get('width', 0),
+                'height': item.get('height', 0),
+                'figure_size': item.get('width', 0) * item.get('height', 0),
+                'figure_aspect': item.get('width', 1) / max(item.get('height', 1), 1),
+            }
+            table_idx += 1
+    else:
+        # Legacy docling handling
+        for page_no, page in conv_res.document.pages.items():
+            page_no = page.page_no
+            page_image_filename = output_dir / f"{doc_filename}-{page_no}.png"
+            with page_image_filename.open("wb") as fp:
+                page.image.pil_image.save(fp, format="PNG")
+
+        table_counter = 0
+        picture_counter = 0
+        for element, _level in conv_res.document.iterate_items():
+            if isinstance(element, TableItem):
+                table_counter += 1
+                element_image_filename = (
+                    output_dir / f"{doc_filename}-table-{table_counter}.png"
+                )
+                with element_image_filename.open("wb") as fp:
+                    element.get_image(conv_res.document).save(fp, "PNG")
+
+            if isinstance(element, PictureItem):
+                picture_counter += 1
+                element_image_filename = (
+                    output_dir / f"{doc_filename}-picture-{picture_counter}.png"
+                )
+                with element_image_filename.open("wb") as fp:
+                    element.get_image(conv_res.document).save(fp, "PNG")
+
+        md_filename = output_dir / f"{doc_filename}-with-images.md"
+        conv_res.document.save_as_markdown(md_filename, image_mode=ImageRefMode.EMBEDDED)
+
+        md_filename = output_dir / f"{doc_filename}-with-image-refs.md"
+        conv_res.document.save_as_markdown(md_filename, image_mode=ImageRefMode.REFERENCED)
+
+        html_filename = output_dir / f"{doc_filename}-with-image-refs.html"
+        conv_res.document.save_as_html(html_filename, image_mode=ImageRefMode.REFERENCED)
+
+        table_index = 1
+        for table in conv_res.document.tables:
+            caption = table.caption_text(conv_res.document)
+            if len(caption) > 0:
+                table_img_path = f'<{args.model_name_t}_{args.model_name_v}>_images_and_tables/{args.poster_name}/{args.poster_name}-table-{table_index}.png'
+                table_img = PIL.Image.open(table_img_path)
+                tables[str(table_index)] = {
+                    'caption': caption,
+                    'table_path': table_img_path,
+                    'width': table_img.width,
+                    'height': table_img.height,
+                    'figure_size': table_img.width * table_img.height,
+                    'figure_aspect': table_img.width / table_img.height,
+                }
+
+            table_index += 1
+
+        images = {}
+        image_index = 1
+        for image in conv_res.document.pictures:
+            caption = image.caption_text(conv_res.document)
+            if len(caption) > 0:
+                image_img_path = f'<{args.model_name_t}_{args.model_name_v}>_images_and_tables/{args.poster_name}/{args.poster_name}-picture-{image_index}.png'
+                image_img = PIL.Image.open(image_img_path)
+                images[str(image_index)] = {
+                    'caption': caption,
+                    'image_path': image_img_path,
+                    'width': image_img.width,
+                    'height': image_img.height,
+                    'figure_size': image_img.width * image_img.height,
+                    'figure_aspect': image_img.width / image_img.height,
+                }
+            image_index += 1
 
     json.dump(images, open(f'<{args.model_name_t}_{args.model_name_v}>_images_and_tables/{args.poster_name}_images.json', 'w'), indent=4)
     json.dump(tables, open(f'<{args.model_name_t}_{args.model_name_v}>_images_and_tables/{args.poster_name}_tables.json', 'w'), indent=4)
@@ -228,9 +260,9 @@ if __name__ == '__main__':
         args.poster_name = args.poster_path.split('/')[-1].replace('.pdf', '').replace(' ', '_')
 
     # Parse raw content
-    input_token, output_token = parse_raw(args, agent_config)
+    input_token, output_token, raw_res = parse_raw(args, agent_config)
 
     # Generate images and tables
-    _, _ = gen_image_and_table(args)
+    _, _, _, _ = gen_image_and_table(args, raw_res)
 
     print(f'Token consumption: {input_token} -> {output_token}')
