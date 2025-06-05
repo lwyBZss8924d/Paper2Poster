@@ -58,6 +58,19 @@ Create a `.env` file in the project root and add your OpenAI API key:
 
 ```bash
 OPENAI_API_KEY=<your_openai_api_key>
+MISTRAL_API_KEY=<your_mistral_api_key>
+```
+The parser uses Mistral's OCR service via the official Python SDK; ensure the API key is set.
+
+### Mistral OCR Configuration
+
+The parser exposes a `MistralOCRConfig` dataclass for customizing OCR behaviour. You can adjust
+model name, timeouts and quality thresholds as needed:
+
+```python
+from PosterAgent.mistral_ocr import MistralOCRConfig
+
+config = MistralOCRConfig(timeout=120, min_markdown_length=800)
 ```
 
 ---
