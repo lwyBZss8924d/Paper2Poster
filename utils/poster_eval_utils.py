@@ -22,7 +22,6 @@ import shutil
 import pytesseract
 from utils.wei_utils import account_token
 from camel.types import ModelPlatformType, ModelType
-from marker.models import create_model_dict
 from camel.configs import ChatGPTConfig
 from camel.agents import ChatAgent
 from jinja2 import Environment, StrictUndefined
@@ -469,10 +468,8 @@ def get_poster_text(poster_path):
 
     raw_markdown = raw_result.document.export_to_markdown()
     text_content = markdown_clean_pattern.sub("", raw_markdown)
-    if len(text_content) < 500:
-        print('\nParsing with docling failed, using marker instead\n')
-        parser_model = create_model_dict(device='cuda', dtype=torch.float16)
-        text_content, rendered = parse_pdf(poster_path, model_lst=parser_model, save_file=False)
+    # TODO: Implement Mistral OCR and DOCLING fallback (Issue #6)
+    # For now, we assume text_content is sufficient or will be handled by future logic
     return text_content
 
 def qwen2_vl_ppl(

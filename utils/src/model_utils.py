@@ -6,9 +6,9 @@ import numpy as np
 import torch
 import torchvision.transforms as T
 from FlagEmbedding import BGEM3FlagModel
-from marker.config.parser import ConfigParser
-from marker.converters.pdf import PdfConverter
-from marker.output import text_from_rendered
+# from marker.config.parser import ConfigParser # MARKER REMOVED
+# from marker.converters.pdf import PdfConverter # MARKER REMOVED
+# from marker.output import text_from_rendered # MARKER REMOVED
 from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 from transformers import AutoFeatureExtractor, AutoModel
@@ -102,42 +102,32 @@ def parse_pdf(
 ) -> str:
     """
     Parse a PDF file and extract text and images.
+    THIS IS A PLACEHOLDER FUNCTION. MARKER LOGIC HAS BEEN REMOVED.
+    It needs to be updated with Mistral OCR and DOCLING fallback.
 
     Args:
         pdf_path (str): The path to the PDF file.
         output_path (str): The directory to save the extracted content.
-        model_lst (list): A list of models for processing the PDF.
+        model_lst (list): A list of models for processing the PDF (NO LONGER USED).
 
     Returns:
         str: The full text extracted from the PDF.
     """
-    if save_file:
+    # MARKER related code removed.
+    # This function needs to be reimplemented using Mistral OCR (Issue #2)
+    # and integrated into the fallback logic (Issue #6, #8).
+    print(f"Warning: parse_pdf for {pdf_path} is not implemented post-MARKER removal. Returning empty content.")
+    if save_file and output_path:
         os.makedirs(output_path, exist_ok=True)
-    config_parser = ConfigParser(
-        {
-            "output_format": "markdown",
-        }
-    )
-    converter = PdfConverter(
-        config=config_parser.generate_config_dict(),
-        artifact_dict=model_lst,
-        processor_list=config_parser.get_processors(),
-        renderer=config_parser.get_renderer(),
-    )
-    rendered = converter(pdf_path)
-    full_text, _, images = text_from_rendered(rendered)
-    if save_file:
+        # Create empty files or placeholders as expected by calling code if necessary
         with open(pjoin(output_path, "source.md"), "w+", encoding="utf-8") as f:
-            f.write(full_text)
-        for filename, image in images.items():
-            image_filepath = os.path.join(output_path, filename)
-            image.save(image_filepath, "JPEG")
+            f.write("") # Empty markdown
         with open(pjoin(output_path, "meta.json"), "w+") as f:
-            f.write(json.dumps(rendered.metadata, indent=4))
+            json.dump({}, f, indent=4) # Empty metadata
 
     if not save_file:
-        return full_text, rendered
-    return full_text
+        return "", None # full_text, rendered (empty for now)
+    return "" # full_text (empty for now)
 
 
 def get_text_embedding(

@@ -17,8 +17,6 @@ from pathlib import Path
 
 import PIL
 
-from marker.models import create_model_dict
-
 from utils.wei_utils import *
 
 from utils.pptx_utils import *
@@ -52,10 +50,8 @@ def parse_raw(args, actor_config, version=1):
     raw_markdown = raw_result.document.export_to_markdown()
     text_content = markdown_clean_pattern.sub("", raw_markdown)
 
-    if len(text_content) < 500:
-        print('\nParsing with docling failed, using marker instead\n')
-        parser_model = create_model_dict(device='cuda', dtype=torch.float16)
-        text_content, rendered = parse_pdf(raw_source, model_lst=parser_model, save_file=False)
+    # TODO: Implement Mistral OCR and DOCLING fallback (Issue #6)
+    # For now, we assume text_content is sufficient or will be handled by future logic
 
     if version == 1:
         template = Template(open("utils/prompts/gen_poster_raw_content.txt").read())
