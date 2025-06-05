@@ -1,6 +1,7 @@
-# NewFeatures: Paper2Poster Parser Pipeline - Mistral OCR Integration PRD(2)
+# NewFeatures: Paper2Poster Parser Pipeline - Mistral OCR Integration Issues
 
-issue tag: #NewFeatures #PDF2MD-Pipeline
+issue tag: #NewFeatures #PDF2MD-MistralOCR
+issue summary: #NewFeatures #Parser #PDF2MD #NewPipeline #Mistral-OCR-Integration #DOCLING-Fallback
 
 ## 🎯 Epic: Integrate Mistral Document AI as Primary PDF Processor
 
