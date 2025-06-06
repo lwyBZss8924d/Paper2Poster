@@ -1,0 +1,316 @@
+Metadata-Version: 2.4
+Name: paper2poster
+Version: 1.0.0
+Summary: Multimodal Poster Automation from Scientific Papers
+Author: Kevin Qinghong Lin, Xiangru Jian, Xi He, Philip Torr
+Author-email: Wei Pang <wei.pang@eng.ox.ac.uk>
+License: MIT
+Project-URL: Homepage, https://paper2poster.github.io/
+Project-URL: Repository, https://github.com/Paper2Poster/Paper2Poster
+Project-URL: Documentation, https://paper2poster.github.io/
+Project-URL: Bug Reports, https://github.com/Paper2Poster/Paper2Poster/issues
+Project-URL: Research Paper, https://arxiv.org/abs/2505.21497
+Keywords: ai,multimodal,poster,automation,scientific-papers
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: accelerate
+Requires-Dist: agentops>=0.3.0
+Requires-Dist: aiofiles>=24.0.0
+Requires-Dist: aiohttp>=3.11.0
+Requires-Dist: anthropic>=0.42.0
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: bibtexparser>=1.4.0
+Requires-Dist: black>=25.1.0
+Requires-Dist: click>=8.1.0
+Requires-Dist: cohere>=5.13.0
+Requires-Dist: colorama>=0.4.6
+Requires-Dist: coloredlogs>=15.0.0
+Requires-Dist: datasets>=3.2.0
+Requires-Dist: diffusers>=0.25.0
+Requires-Dist: duckdb>=1.1.0
+Requires-Dist: easyocr
+Requires-Dist: einops>=0.8.0
+Requires-Dist: evaluate>=0.4.0
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: firecrawl-py>=1.6.0
+Requires-Dist: google-generativeai>=0.6.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: httptools>=0.6.0
+Requires-Dist: huggingface-hub>=0.27.0
+Requires-Dist: imageio>=2.37.0
+Requires-Dist: ipython>=8.31.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: joblib>=1.4.0
+Requires-Dist: json-repair>=0.35.0
+Requires-Dist: jsonlines>=3.1.0
+Requires-Dist: jsonschema>=4.23.0
+Requires-Dist: jupyter>=1.1.0
+Requires-Dist: langchain>=0.3.17
+Requires-Dist: langchain-community>=0.3.16
+Requires-Dist: langchain-core>=0.3.33
+Requires-Dist: langchain-openai>=0.3.3
+Requires-Dist: langchain-text-splitters>=0.3.5
+Requires-Dist: langdetect>=1.0.9
+Requires-Dist: langsmith>=0.3.3
+Requires-Dist: lxml>=5.3.0
+Requires-Dist: markdown>=3.7
+Requires-Dist: markdownify>=0.13.0
+Requires-Dist: matplotlib>=3.10.0
+Requires-Dist: mistralai>=1.8.1
+Requires-Dist: mistral-common>=1.5.1
+Requires-Dist: nltk>=3.9.0
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: openai>=1.59.0
+Requires-Dist: opencv-python>=4.11.0
+Requires-Dist: openpyxl>=3.1.0
+Requires-Dist: orjson>=3.10.0
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: pdf2image>=1.17.0
+Requires-Dist: pdfminer.six>=20231228
+Requires-Dist: pdfplumber>=0.11.0
+Requires-Dist: pdftext>=0.4.0
+Requires-Dist: pillow>=10.4.0
+Requires-Dist: plotly>=6.0.0
+Requires-Dist: psutil>=6.0.0
+Requires-Dist: pydantic>=2.10.3
+Requires-Dist: pydantic-settings>=2.7.0
+Requires-Dist: pymupdf>=1.23.0
+Requires-Dist: pypdf>=5.2.0
+Requires-Dist: pytest>=8.3.0
+Requires-Dist: python-dateutil>=2.9.0
+Requires-Dist: python-docx>=1.1.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: pytesseract>=0.3.0
+Requires-Dist: pytz>=2024.2
+Requires-Dist: pyyaml>=6.0.0
+Requires-Dist: requests>=2.32.0
+Requires-Dist: rouge>=1.0.0
+Requires-Dist: ruff>=0.7.0
+Requires-Dist: scikit-image>=0.25.0
+Requires-Dist: scikit-learn>=1.6.0
+Requires-Dist: scipy>=1.15.0
+Requires-Dist: tenacity>=8.2.0
+Requires-Dist: torch
+Requires-Dist: torchvision
+Requires-Dist: transformers>=4.48.0
+Requires-Dist: tqdm>=4.67.0
+Requires-Dist: uvicorn
+Requires-Dist: yfinance>=0.2.52
+Provides-Extra: dev
+Requires-Dist: black>=25.1.0; extra == "dev"
+Requires-Dist: ruff>=0.7.4; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Provides-Extra: extended
+Requires-Dist: cohere>=5.13.11; extra == "extended"
+Requires-Dist: google-generativeai>=0.6.0; extra == "extended"
+Requires-Dist: langchain>=0.3.17; extra == "extended"
+Requires-Dist: scipy>=1.11.0; extra == "extended"
+Requires-Dist: scikit-learn>=1.4.0; extra == "extended"
+Requires-Dist: plotly>=5.17.0; extra == "extended"
+Dynamic: license-file
+
+# 🎓Paper2Poster: Multimodal Poster Automation from Scientific Papers
+
+<p align="center">
+  <a href="https://arxiv.org/abs/2505.21497" target="_blank"><img src="https://img.shields.io/badge/arXiv-2505.21497-red"></a>
+  <a href="https://paper2poster.github.io/" target="_blank"><img src="https://img.shields.io/badge/Project-Page-brightgreen"></a>
+  <a href="https://huggingface.co/datasets/Paper2Poster/Paper2Poster" target="_blank"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Dataset-orange"></a>
+  <a href="https://huggingface.co/papers/2505.21497" target="_blank"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Daily Papers-red"></a>
+  <a href="https://x.com/_akhaliq/status/1927721150584390129" target="_blank"><img alt="X (formerly Twitter) URL" src="https://img.shields.io/twitter/url?url=https%3A%2F%2Fx.com%2F_akhaliq%2Fstatus%2F1927721150584390129"></a>    
+</p>
+
+We address **How to create a poster from a paper** and **How to evaluate poster.**
+
+![Overview](./assets/overall.png)
+
+<!--## 📚 Introduction-->
+
+**PosterAgent** is a top-down, visual-in-the-loop multi-agent system from `paper.pdf` to **editable** `poster.pptx`.
+
+![PosterAgent Overview](./assets/posteragent.png)
+
+<!--A Top-down, visual-in-the-loop, efficient multi-agent pipeline, which includes (a) Parser distills the paper into a structured asset library; the (b) Planner aligns text–visual pairs into a binary‐tree layout that preserves reading order and spatial balance; and the (c) Painter-Commentor loop refines each panel by executing rendering code and using VLM feedback to eliminate overflow and ensure alignment.-->
+
+<!--![Paper2Poster Overview](./assets/paperquiz.png)-->
+
+<!--**Paper2Poster:** A benchmark for paper to poster generation, paired with human generated poster, with a comprehensive evaluation suite, including metrics like **Visual Quality**, **Textual Coherence**, **VLM-as-Judge** and **PaperQuiz**. Notably, PaperQuiz is a novel evaluation which assume A Good poster should convey core paper content visually.-->
+
+## 📋 Table of Contents
+
+<!--- [📚 Introduction](#-introduction)-->
+- [🛠️ Installation](#-installation)
+- [🚀 Quick Start](#-quick-start)
+- [🔮 Evaluation](#-evaluation)
+---
+
+## 🛠️ Installation
+Our Paper2Poster supports both local deployment (via [vLLM](https://docs.vllm.ai/en/v0.6.6/getting_started/installation.html)) or API-based access (e.g., GPT-4o).
+
+**Quick Setup with uv (Recommended)**
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv sync
+
+# Install with specific feature sets
+uv sync --extra dev          # Development tools
+uv sync --extra vllm         # vLLM support for local models
+uv sync --extra gpu          # GPU acceleration
+uv sync --extra evaluation   # Evaluation metrics
+uv sync --extra all          # Everything
+```
+
+**Alternative: Traditional pip**
+```bash
+pip install -r requirements.txt
+```
+
+**Install Libreoffice**
+```bash
+sudo apt install libreoffice
+```
+
+or, if you do **not** have sudo access, download `soffice` executable directly: https://www.libreoffice.org/download/download-libreoffice/, and add the executable directory to your `$PATH`.
+
+**Install poppler**
+```bash
+conda install -c conda-forge poppler
+```
+
+**API Key**
+
+Create a `.env` file in the project root and add your OpenAI API key:
+
+```bash
+OPENAI_API_KEY=<your_openai_api_key>
+MISTRAL_API_KEY=<your_mistral_api_key>
+```
+The parser uses Mistral's OCR service via the official Python SDK; ensure the API key is set.
+
+### Mistral OCR Configuration
+
+The parser exposes a `MistralOCRConfig` dataclass for customizing OCR behaviour. You can adjust
+model name, timeouts and quality thresholds as needed:
+
+```python
+from PosterAgent.mistral_ocr import MistralOCRConfig
+
+config = MistralOCRConfig(timeout=120, min_markdown_length=800)
+```
+
+---
+
+## 🚀 Quick Start
+Create a folder named `{paper_name}` under `{dataset_dir}`, and place your paper inside it as a PDF file named `paper.pdf`.
+```
+📁 {dataset_dir}/
+└── 📁 {paper_name}/
+    └── 📄 paper.pdf
+```
+To use open-source models, you need to first deploy them using [vLLM](https://docs.vllm.ai/en/v0.6.6/getting_started/installation.html), ensuring the port is correctly specified in the `get_agent_config()` function in [`utils/wei_utils.py`](utils/wei_utils.py).
+
+- [High Performance] Generate a poster with `GPT-4o`:
+
+```bash
+python -m PosterAgent.new_pipeline \
+    --poster_path="${dataset_dir}/${paper_name}/paper.pdf" \
+    --model_name_t="4o" \  # LLM
+    --model_name_v="4o" \  # VLM
+    --poster_width_inches=48 \
+    --poster_height_inches=36
+```
+
+- [Economic] Generate a poster with `Qwen-2.5-7B-Instruct` and `GPT-4o`:
+
+```bash
+python -m PosterAgent.new_pipeline \
+    --poster_path="${dataset_dir}/${paper_name}/paper.pdf" \
+    --model_name_t="vllm_qwen" \  # LLM
+    --model_name_v="4o" \         # VLM
+    --poster_width_inches=48 \
+    --poster_height_inches=36 \
+    --no_blank_detection          # An option to disable blank detection
+```
+
+- [Local] Generate a poster with `Qwen-2.5-7B-Instruct`:
+
+```bash
+python -m PosterAgent.new_pipeline \
+    --poster_path="${dataset_dir}/${paper_name}/paper.pdf" \
+    --model_name_t="vllm_qwen" \           # LLM
+    --model_name_v="vllm_qwen_vl" \        # VLM
+    --poster_width_inches=48 \
+    --poster_height_inches=36
+```
+
+PosterAgent **supports flexible combination of LLM / VLM**, feel free to try other options, or customize your own settings in `get_agent_config()` in [`utils/wei_utils.py`](utils/wei_utils.py).
+
+## 🔮 Evaluation
+Download Paper2Poster evaluation dataset via:
+```bash
+python -m PosterAgent.create_dataset
+```
+
+In evaluation, papers are stored under a directory called `Paper2Poster-data`.
+
+To evaluate a generated poster with **PaperQuiz**:
+```bash
+python -m Paper2Poster-eval.eval_poster_pipeline \
+    --paper_name="${paper_name}" \
+    --poster_method="${model_t}_${model_v}_generated_posters" \
+    --metric=qa # PaperQuiz
+```
+
+To evaluate a generated poster with **VLM-as-Judge**:
+```bash
+python -m Paper2Poster-eval.eval_poster_pipeline \
+    --paper_name="${paper_name}" \
+    --poster_method="${model_t}_${model_v}_generated_posters" \
+    --metric=judge # VLM-as-Judge
+```
+
+To evaluate a generated poster with other statistical metrics (such as visual similarity, PPL, etc):
+```bash
+python -m Paper2Poster-eval.eval_poster_pipeline \
+    --paper_name="${paper_name}" \
+    --poster_method="${model_t}_${model_v}_generated_posters" \
+    --metric=stats # statistical measures
+```
+
+If you want to create a PaperQuiz for your own paper:
+```bash
+python -m Paper2Poster-eval.create_paper_questions \
+    --paper_folder="Paper2Poster-data/${paper_name}"
+```
+
+## ❤ Acknowledgement
+We extend our gratitude to [🐫CAMEL](https://github.com/camel-ai/camel), [🦉OWL](https://github.com/camel-ai/owl), [Docling](https://github.com/docling-project/docling), [PPTAgent](https://github.com/icip-cas/PPTAgent) for providing their codebases.
+
+## 📖 Citation
+
+Please kindly cite our paper if you find this project helpful.
+
+```bibtex
+@misc{paper2poster,
+      title={Paper2Poster: Towards Multimodal Poster Automation from Scientific Papers}, 
+      author={Wei Pang and Kevin Qinghong Lin and Xiangru Jian and Xi He and Philip Torr},
+      year={2025},
+      eprint={2505.21497},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2505.21497}, 
+}
+```

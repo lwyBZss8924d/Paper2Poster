@@ -35,7 +35,25 @@ We address **How to create a poster from a paper** and **How to evaluate poster.
 ## 🛠️ Installation
 Our Paper2Poster supports both local deployment (via [vLLM](https://docs.vllm.ai/en/v0.6.6/getting_started/installation.html)) or API-based access (e.g., GPT-4o).
 
-**Python Environment**
+**Quick Setup with uv (Recommended)**
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv sync
+
+# Install with specific feature sets
+uv sync --extra dev          # Development tools
+uv sync --extra vllm         # vLLM support for local models
+uv sync --extra gpu          # GPU acceleration
+uv sync --extra evaluation   # Evaluation metrics
+uv sync --extra all          # Everything
+```
+
+**Alternative: Traditional pip**
 ```bash
 pip install -r requirements.txt
 ```
@@ -58,6 +76,19 @@ Create a `.env` file in the project root and add your OpenAI API key:
 
 ```bash
 OPENAI_API_KEY=<your_openai_api_key>
+MISTRAL_API_KEY=<your_mistral_api_key>
+```
+The parser uses Mistral's OCR service via the official Python SDK; ensure the API key is set.
+
+### Mistral OCR Configuration
+
+The parser exposes a `MistralOCRConfig` dataclass for customizing OCR behaviour. You can adjust
+model name, timeouts and quality thresholds as needed:
+
+```python
+from PosterAgent.mistral_ocr import MistralOCRConfig
+
+config = MistralOCRConfig(timeout=120, min_markdown_length=800)
 ```
 
 ---
