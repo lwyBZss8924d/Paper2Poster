@@ -1,0 +1,2 @@
+[console_scripts]
+paper2poster = PosterAgent.new_pipeline:main

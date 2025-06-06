@@ -35,7 +35,25 @@ We address **How to create a poster from a paper** and **How to evaluate poster.
 ## 🛠️ Installation
 Our Paper2Poster supports both local deployment (via [vLLM](https://docs.vllm.ai/en/v0.6.6/getting_started/installation.html)) or API-based access (e.g., GPT-4o).
 
-**Python Environment**
+**Quick Setup with uv (Recommended)**
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv sync
+
+# Install with specific feature sets
+uv sync --extra dev          # Development tools
+uv sync --extra vllm         # vLLM support for local models
+uv sync --extra gpu          # GPU acceleration
+uv sync --extra evaluation   # Evaluation metrics
+uv sync --extra all          # Everything
+```
+
+**Alternative: Traditional pip**
 ```bash
 pip install -r requirements.txt
 ```

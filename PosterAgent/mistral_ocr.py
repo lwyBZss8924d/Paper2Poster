@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple, Optional
 
 from pydantic import BaseModel, Field
 from mistralai import Mistral
-from mistralai.models import response_format_from_pydantic_model
+from mistralai.extra import response_format_from_pydantic_model
 from tenacity import (
     retry,
     wait_exponential,
@@ -152,7 +152,8 @@ async def process_pdf_with_mistral(
                 filename_for_logging
             )
 
-    except fitz.fitz.PyMuPDFError as f_err:
+    except (fitz.FileDataError, fitz.FileNotFoundError,
+            fitz.EmptyFileError) as f_err:
         logger.error(
             f"PyMuPDF (fitz) error while processing "
             f"'{filename_for_logging}': {f_err}"
@@ -160,6 +161,20 @@ async def process_pdf_with_mistral(
         raise PDFProcessingError(
             f"PyMuPDF error processing '{filename_for_logging}': {f_err}"
         )
+    except Exception as fitz_err:
+        # Catch any other fitz-related errors
+        if ('fitz' in str(type(fitz_err)).lower() or
+                'mupdf' in str(fitz_err).lower()):
+            logger.error(
+                f"PyMuPDF (fitz) error while processing "
+                f"'{filename_for_logging}': {fitz_err}"
+            )
+            raise PDFProcessingError(
+                f"PyMuPDF error processing "
+                f"'{filename_for_logging}': {fitz_err}"
+            )
+        # Re-raise if not a fitz error
+        raise
     except Exception as e:
         logger.error(
             f"Error during Mistral OCR processing "
@@ -287,15 +302,19 @@ async def _process_single_pdf(
         f"(model: {config.model}, timeout: {config.timeout}s)"
     )
 
-    response = await client.ocr.process(
+    response = await client.ocr.process_async(
         model=config.model,
-        document_base64=current_pdf_base64,
-        content_type=current_content_type,
+        document={
+            "type": "document_url",
+            "document_url": (
+                f"data:{current_content_type};base64,{current_pdf_base64}"
+            )
+        },
         include_image_base64=config.include_image_base64,
         bbox_annotation_format=response_format_from_pydantic_model(
             ImageAnnotation
         ),
-        timeout=config.timeout,
+        timeout_ms=config.timeout * 1000,
     )
 
     if not response or not response.pages:
@@ -583,18 +602,32 @@ def convert_markdown_table_to_image(
         header_line = lines[0]
         data_lines = lines[2:] if len(lines) > 2 else []
 
-        # Extract headers
+        # Extract headers (remove empty strings from split)
         headers = [h.strip() for h in header_line.split('|') if h.strip()]
 
         # Extract data rows
         data = []
         for line in data_lines:
-            row = [cell.strip() for cell in line.split('|') if cell.strip()]
-            if row:  # Skip empty rows
+            # Split and filter out empty cells
+            cells = line.split('|')
+            # Remove first and last empty elements if line starts/ends with |
+            if cells and cells[0] == '':
+                cells = cells[1:]
+            if cells and cells[-1] == '':
+                cells = cells[:-1]
+            row = [cell.strip() for cell in cells]
+
+            # Only add row if it has the correct number of columns
+            if row and len(row) == len(headers):
                 data.append(row)
+            elif row:
+                logger.warning(
+                    f"Skipping row with {len(row)} columns, "
+                    f"expected {len(headers)}"
+                )
 
         if not data:
-            logger.warning("No data found in markdown table")
+            logger.warning("No valid data found in markdown table")
             return False
 
         # Create DataFrame

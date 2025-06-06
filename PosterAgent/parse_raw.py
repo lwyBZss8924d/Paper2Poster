@@ -4,6 +4,7 @@ import json
 import random
 import asyncio
 import os
+from datetime import datetime
 
 from camel.models import ModelFactory
 from camel.agents import ChatAgent
@@ -26,9 +27,11 @@ from docling.document_converter import DocumentConverter, PdfFormatOption
 from pathlib import Path
 import PIL
 
-from utils.wei_utils import *
-from utils.pptx_utils import *
-from utils.critic_utils import *
+from utils.wei_utils import account_token, get_agent_config
+# Note: These star imports are kept for compatibility with original code
+# They may contain functions used elsewhere in the codebase
+from utils.pptx_utils import *  # noqa: F401, F403
+from utils.critic_utils import *  # noqa: F401, F403
 from jinja2 import Template
 import re
 import argparse
@@ -48,17 +51,20 @@ doc_converter = DocumentConverter(
 )
 
 
-async def parse_raw_async(args, actor_config, version=1):
+async def parse_raw_async(args, actor_config, version=2):
     """Async version of parse_raw with Mistral OCR as primary processor."""
     raw_source = args.poster_path
     markdown_clean_pattern = re.compile(r"<!--[\s\S]*?-->")
 
     text_content = ""
     raw_result = None
-    images_meta = []
-    tables_meta = []
 
     config = MistralOCRConfig()
+
+    # Create debug directory
+    debug_dir = Path("debug_output")
+    debug_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Phase 1: Try Mistral OCR (Primary)
     try:
@@ -77,6 +83,15 @@ async def parse_raw_async(args, actor_config, version=1):
 
         if not ok:
             raise MistralAPIError(";".join(reasons))
+
+        # Save OCR markdown output for debugging
+        ocr_output_file = debug_dir / f"ocr_output_{timestamp}.md"
+        with open(ocr_output_file, 'w', encoding='utf-8') as f:
+            f.write("# OCR Output from Mistral\n")
+            f.write(f"Timestamp: {timestamp}\n")
+            f.write(f"PDF: {raw_source}\n\n")
+            f.write(text_content)
+        print(f"💾 Saved OCR output to: {ocr_output_file}")
 
         # Save assets to files for compatibility
         processed_images, processed_tables = save_assets_to_files(
@@ -118,6 +133,15 @@ async def parse_raw_async(args, actor_config, version=1):
         raw_markdown = raw_result.document.export_to_markdown()
         text_content = markdown_clean_pattern.sub("", raw_markdown)
 
+        # Save DOCLING output for debugging
+        ocr_output_file = debug_dir / f"ocr_output_docling_{timestamp}.md"
+        with open(ocr_output_file, 'w', encoding='utf-8') as f:
+            f.write("# OCR Output from DOCLING (Fallback)\n")
+            f.write(f"Timestamp: {timestamp}\n")
+            f.write(f"PDF: {raw_source}\n\n")
+            f.write(text_content)
+        print(f"💾 Saved DOCLING output to: {ocr_output_file}")
+
         # Check if DOCLING content is sufficient
         if len(text_content) < 500:
             print('\n⚠️ Docling content too short, using marker fallback\n')
@@ -138,14 +162,22 @@ async def parse_raw_async(args, actor_config, version=1):
 
     # Continue with existing LLM processing logic
     return await _process_with_llm(
-        args, actor_config, version, text_content, raw_result
+        args, actor_config, version, text_content, raw_result, timestamp
     )
 
 
 async def _process_with_llm(
-    args, actor_config, version, text_content, raw_result
+    args, actor_config, version, text_content, raw_result, timestamp=None
 ):
     """Process text content with LLM to generate structured JSON."""
+    print(f"\n📝 Using prompt version: {version}")
+
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    debug_dir = Path("debug_output")
+    debug_dir.mkdir(exist_ok=True)
+
     if version == 1:
         template = Template(
             open("utils/prompts/gen_poster_raw_content.txt").read()
@@ -163,10 +195,18 @@ async def _process_with_llm(
             url=actor_config['url'],
         )
     else:
+        # Add max_tokens to model config if not already set
+        model_config = actor_config.get('model_config', {})
+        if model_config is None:
+            model_config = {}
+        if 'max_tokens' not in model_config:
+            # Use Gemini 2.5 Pro's max output tokens
+            model_config['max_tokens'] = 65535
+
         actor_model = ModelFactory.create(
             model_platform=actor_config['model_platform'],
             model_type=actor_config['model_type'],
-            model_config_dict=actor_config['model_config'],
+            model_config_dict=model_config,
         )
 
     actor_sys_msg = (
@@ -185,17 +225,75 @@ async def _process_with_llm(
         prompt = template.render(
             markdown_document=text_content,
         )
+
         actor_agent.reset()
         response = actor_agent.step(prompt)
         input_token, output_token = account_token(response)
 
+        # Save conversation history using CAMEL's memory
+        try:
+            # Get full conversation context from agent memory
+            openai_messages, total_tokens = actor_agent.memory.get_context()
+
+            # Save conversation history
+            history_file = debug_dir / f"llm_conversation_{timestamp}.json"
+            conversation_data = {
+                "timestamp": timestamp,
+                "model": args.model_name_t,
+                "prompt_version": version,
+                "total_tokens": total_tokens,
+                "input_tokens": input_token,
+                "output_tokens": output_token,
+                "messages": [
+                    {
+                        "role": msg.get("role", "unknown"),
+                        "content": msg.get("content", ""),
+                        "name": msg.get("name", None)
+                    }
+                    for msg in openai_messages
+                ]
+            }
+
+            with open(history_file, 'w', encoding='utf-8') as f:
+                json.dump(conversation_data, f, indent=2, ensure_ascii=False)
+            print(f"💾 Saved conversation history to: {history_file}")
+
+        except Exception as e:
+            print(f"⚠️ Failed to save conversation history: {e}")
+
         content_json = get_json_from_response(response.msgs[0].content)
+
+        # Debug: Print LLM response
+        print("\n🔍 Debug - LLM Response Preview (first 500 chars):")
+        print(response.msgs[0].content[:500])
+        print("\n🔍 Debug - Parsed JSON keys: "
+              f"{list(content_json.keys()) if content_json else 'None'}")
 
         if len(content_json) > 0:
             break
         print('Error: Empty response, retrying...')
         if args.model_name_t.startswith('vllm_qwen'):
             text_content = text_content[:80000]
+
+    # Debug: Check if 'sections' key exists
+    if 'sections' not in content_json:
+        print(f"❌ Error: 'sections' key not found in JSON. Keys found: "
+              f"{list(content_json.keys())}")
+        print(f"❌ JSON content: "
+              f"{json.dumps(content_json, indent=2)[:1000]}...")
+
+        # Save error details
+        error_file = debug_dir / f"llm_error_{timestamp}.json"
+        with open(error_file, 'w', encoding='utf-8') as f:
+            json.dump({
+                "error": "Missing 'sections' key",
+                "keys_found": list(content_json.keys()),
+                "response_preview": response.msgs[0].content[:2000],
+                "parsed_json": content_json
+            }, f, indent=2, ensure_ascii=False)
+        print(f"💾 Saved error details to: {error_file}")
+
+        raise ValueError("JSON response missing 'sections' key")
 
     if len(content_json['sections']) > 9:
         # First 2 sections + randomly select 5 + last 2 sections
@@ -213,23 +311,47 @@ async def _process_with_llm(
     has_title = False
 
     for section in content_json['sections']:
-        if (not isinstance(section, dict) or
-                'title' not in section or 'content' not in section):
+        if not isinstance(section, dict) or 'title' not in section:
             print(
                 "Ouch! The response is invalid, the LLM is not "
                 "following the format :("
             )
             print('Trying again...')
-            raise
+            raise ValueError(
+                "LLM response format invalid - missing required fields"
+            )
+
+        # Version 1 expects subsections, Version 2 expects content
+        if version == 1:
+            if 'subsections' not in section:
+                print(
+                    f"Error: Section '{section.get('title', 'unknown')}' "
+                    f"missing 'subsections' field for version 1 format"
+                )
+                raise ValueError(
+                    "LLM response format invalid - missing subsections"
+                )
+        elif version == 2:
+            if 'content' not in section:
+                print(
+                    f"Error: Section '{section.get('title', 'unknown')}' "
+                    f"missing 'content' field for version 2 format"
+                )
+                raise ValueError(
+                    "LLM response format invalid - missing content"
+                )
+
+        # Check for title section
         if 'title' in section['title'].lower():
             has_title = True
 
-    if not has_title:
+    if not has_title and version == 2:
+        # Version 2 requires a title section
         print(
             'Ouch! The response is invalid, the LLM is not '
-            'following the format :('
+            'following the format - missing title section'
         )
-        raise
+        raise ValueError("LLM response missing title section")
 
     os.makedirs('contents', exist_ok=True)
     output_file = (
@@ -242,7 +364,7 @@ async def _process_with_llm(
 
 
 @retry(stop=stop_after_attempt(5))
-def parse_raw(args, actor_config, version=1):
+def parse_raw(args, actor_config, version=2):
     """Sync wrapper for backward compatibility."""
     return asyncio.run(parse_raw_async(args, actor_config, version))
 
